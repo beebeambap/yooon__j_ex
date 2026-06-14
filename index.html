@@ -22,8 +22,16 @@
         <input type="checkbox" id="guideToggle" checked />
         <span>안전마진 가이드</span>
       </label>
-      <button id="exportCurrent" class="btn">현재 장 PNG</button>
-      <button id="exportAll" class="btn btn-primary">전체 PNG 일괄</button>
+      <div class="export-group">
+        <span class="grp-label">현재</span>
+        <button id="expCurLayer" class="btn">투명 PNG</button>
+        <button id="expCurPhoto" class="btn">합성 JPG</button>
+      </div>
+      <div class="export-group">
+        <span class="grp-label">전체</span>
+        <button id="expAllLayer" class="btn">투명 PNG</button>
+        <button id="expAllPhoto" class="btn btn-primary">합성 JPG</button>
+      </div>
     </div>
   </header>
 

@@ -36,6 +36,15 @@ html, body {
 .brand .ver { font-size: 12px; color: var(--muted); }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 .toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.export-group { display: flex; align-items: center; gap: 6px; padding-left: 10px; border-left: 1px solid var(--line); }
+.export-group .grp-label { font-size: 11px; color: var(--muted); }
+.export-group .btn { padding: 7px 11px; font-size: 12px; }
+
+/* 사진 업로드 */
+.bg-field { background: var(--panel-2); border: 1px dashed var(--line); border-radius: 8px; padding: 12px; }
+.bg-field .filerow { display: flex; align-items: center; gap: 8px; }
+.bg-field .bgname { flex: 1; font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bg-field input[type="file"] { display: none; }
 
 /* Buttons */
 .btn {

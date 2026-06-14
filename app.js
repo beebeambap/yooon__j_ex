@@ -136,12 +136,25 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 /* ---------- 4. 렌더 엔진 ---------- */
-function renderSlide(canvas, idx, withGuides) {
+// opts: { guides:bool, withPhoto:bool, opaque:bool }
+//  - withPhoto: 업로드한 배경 사진을 먼저 깔아 합성 미리보기/출력
+//  - opaque: 사진이 없을 때 #FAFAFA로 배경을 채움(JPG 합성용)
+function renderSlide(canvas, idx, opts) {
+  opts = opts || {};
   const ctx = canvas.getContext("2d");
-  const { W, H, MARGIN } = SPEC;
+  const { W, H } = SPEC;
   ctx.clearRect(0, 0, W, H); // 배경 투명 유지
 
   const slide = slides[idx];
+
+  // 배경 사진 (cover-fit) 또는 불투명 베이스
+  if (opts.withPhoto && slide._img) {
+    drawCoverImage(ctx, slide._img);
+  } else if (opts.opaque) {
+    ctx.fillStyle = SPEC.PAPER;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   const total = slides.length;
   const posNum = idx + 1; // 장 위치 = 인덱스 번호
 
@@ -149,7 +162,18 @@ function renderSlide(canvas, idx, withGuides) {
   else if (slide.type === "body") renderBody(ctx, slide, posNum, total);
   else if (slide.type === "video") renderVideo(ctx, slide, posNum, total);
 
-  if (withGuides) drawGuides(ctx);
+  if (opts.guides) drawGuides(ctx);
+}
+
+// 캔버스를 꽉 채우도록 사진을 cover-fit 배치
+function drawCoverImage(ctx, img) {
+  const { W, H } = SPEC;
+  const ir = img.width / img.height;
+  const cr = W / H;
+  let dw, dh, dx, dy;
+  if (ir > cr) { dh = H; dw = H * ir; dx = (W - dw) / 2; dy = 0; }
+  else { dw = W; dh = W / ir; dx = 0; dy = (H - dh) / 2; }
+  ctx.drawImage(img, dx, dy, dw, dh);
 }
 
 function renderCover(ctx, slide) {
@@ -296,8 +320,13 @@ const els = {
 
 const TYPE_LABEL = { cover: "표지", body: "내지", video: "영상/인덱스" };
 
+// 미리보기: 사진이 있으면 합성된 모습으로
+function renderPreview() {
+  renderSlide(els.preview, current, { guides, withPhoto: true });
+}
+
 function refresh() {
-  renderSlide(els.preview, current, guides);
+  renderPreview();
   els.slidePos.textContent = `${current + 1} / ${slides.length}`;
   renderSlideList();
   renderEditor();
@@ -386,6 +415,21 @@ function renderEditor() {
       </div>`);
   }
 
+  // 배경 사진 (합성 미리보기/JPG 출력용) — 모든 장 공통
+  f.push(`
+    <div class="field">
+      <label>배경 사진 (합성용 · 선택)</label>
+      <div class="bg-field">
+        <div class="filerow">
+          <button type="button" class="btn btn-ghost" id="f_bgpick">${s._img ? "사진 변경" : "사진 선택"}</button>
+          <span class="bgname">${s._img ? escapeHtml(s._bgName || "이미지") : "선택된 사진 없음"}</span>
+          ${s._img ? '<button type="button" class="iconbtn" id="f_bgclear" title="제거">✕</button>' : ""}
+        </div>
+        <input type="file" id="f_bgfile" accept="image/*" />
+        <div class="help">합성 JPG 출력 시 텍스트 아래에 깔립니다. 미저장(새로고침 시 재선택).</div>
+      </div>
+    </div>`);
+
   els.editorFields.innerHTML = f.join("");
 
   // 바인딩
@@ -393,6 +437,19 @@ function renderEditor() {
     convertType(s, e.target.value);
     refresh();
   });
+
+  // 배경 사진 바인딩
+  const bgFile = document.getElementById("f_bgfile");
+  document.getElementById("f_bgpick").addEventListener("click", () => bgFile.click());
+  bgFile.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => { s._img = img; s._bgName = file.name; refresh(); };
+    img.src = URL.createObjectURL(file);
+  });
+  const bgClear = document.getElementById("f_bgclear");
+  if (bgClear) bgClear.addEventListener("click", () => { delete s._img; delete s._bgName; refresh(); });
   bind("f_date", "date");
   bind("f_subtitle", "subtitle");
   bind("f_title", "title");
@@ -405,7 +462,7 @@ function renderEditor() {
     if (!el) return;
     el.addEventListener("input", (e) => {
       s[key] = e.target.value;
-      renderSlide(els.preview, current, guides);
+      renderPreview();
       // 목록 라벨도 갱신하되 포커스 유지 위해 전체 refresh는 디바운스
       clearTimeout(bind._t);
       bind._t = setTimeout(() => { renderSlideList(); saveState(); }, 200);
@@ -453,26 +510,40 @@ function addSlide(type) {
   refresh();
 }
 
-/* ---------- 6. 출력 (배경 투명 PNG) ---------- */
+/* ---------- 6. 출력 ----------
+   mode "layer"  → 배경 투명 PNG (텍스트+스크림만)
+   mode "photo"  → 사진 합성 JPG (불투명, 사진 없으면 #FAFAFA 베이스)
+   파일명 맨 앞에 표지 날짜를 붙임 → 260614_carousel_01_cover.png        */
 function exportCanvas() {
   const c = document.createElement("canvas");
   c.width = SPEC.W; c.height = SPEC.H;
   return c;
 }
 
-function downloadSlide(idx) {
-  const c = exportCanvas();
-  renderSlide(c, idx, false); // 가이드 제외
-  c.toBlob((blob) => {
-    const s = slides[idx];
-    const name = `carousel_${pad2(idx + 1)}_${s.type}.png`;
-    triggerDownload(blob, name);
-  }, "image/png");
+// 덱 공통 날짜 = 첫 표지의 날짜(없으면 오늘). 파일명 접두에 사용.
+function deckDate() {
+  const cov = slides.find((s) => s.type === "cover" && s.date && s.date.trim());
+  const raw = cov ? cov.date.trim() : todayYYMMDD();
+  return raw.replace(/[^0-9A-Za-z]/g, "") || todayYYMMDD(); // 파일명 안전화
 }
 
-async function downloadAll() {
+function downloadSlide(idx, mode) {
+  const c = exportCanvas();
+  const isPhoto = mode === "photo";
+  renderSlide(c, idx, { guides: false, withPhoto: isPhoto, opaque: isPhoto });
+  const s = slides[idx];
+  const ext = isPhoto ? "jpg" : "png";
+  const name = `${deckDate()}_carousel_${pad2(idx + 1)}_${s.type}.${ext}`;
+  c.toBlob(
+    (blob) => triggerDownload(blob, name),
+    isPhoto ? "image/jpeg" : "image/png",
+    isPhoto ? 0.92 : undefined
+  );
+}
+
+async function downloadAll(mode) {
   for (let i = 0; i < slides.length; i++) {
-    downloadSlide(i);
+    downloadSlide(i, mode);
     await new Promise((r) => setTimeout(r, 350)); // 다중 다운로드 안정화
   }
 }
@@ -491,7 +562,14 @@ function triggerDownload(blob, name) {
 /* ---------- 7. 저장/복원 (로컬) ---------- */
 const LS_KEY = "ig-carousel-state-v1";
 function saveState() {
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ slides, current })); } catch (e) {}
+  // 텍스트 상태만 저장(사진은 용량이 커 localStorage에 보존하지 않음 → 새로고침 시 재업로드)
+  try {
+    const clean = slides.map((s) => {
+      const { _img, _bgName, ...rest } = s;
+      return rest;
+    });
+    localStorage.setItem(LS_KEY, JSON.stringify({ slides: clean, current }));
+  } catch (e) {}
 }
 function loadState() {
   try {
@@ -520,13 +598,15 @@ document.getElementById("nextSlide").addEventListener("click", () => {
   current = (current + 1) % slides.length; refresh();
 });
 document.getElementById("guideToggle").addEventListener("change", (e) => {
-  guides = e.target.checked; renderSlide(els.preview, current, guides);
+  guides = e.target.checked; renderPreview();
 });
 document.querySelectorAll("[data-add]").forEach((btn) => {
   btn.addEventListener("click", () => addSlide(btn.dataset.add));
 });
-document.getElementById("exportCurrent").addEventListener("click", () => downloadSlide(current));
-document.getElementById("exportAll").addEventListener("click", () => downloadAll());
+document.getElementById("expCurLayer").addEventListener("click", () => downloadSlide(current, "layer"));
+document.getElementById("expCurPhoto").addEventListener("click", () => downloadSlide(current, "photo"));
+document.getElementById("expAllLayer").addEventListener("click", () => downloadAll("layer"));
+document.getElementById("expAllPhoto").addEventListener("click", () => downloadAll("photo"));
 
 /* ---------- 9. 부팅 (폰트 동기화) ---------- */
 async function boot() {
@@ -543,7 +623,7 @@ async function boot() {
       await document.fonts.ready;
       fontsReady = true;
       els.fontHint.textContent = "폰트 로드 완료 · Noto Sans KR (Freesentation 대체)";
-      renderSlide(els.preview, current, guides);
+      renderPreview();
     } catch (e) {
       els.fontHint.textContent = "웹폰트 로드 실패 — 시스템 폰트로 대체 렌더링";
     }
