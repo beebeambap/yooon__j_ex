@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instagram 캐러셀 템플릿 · 2026.06</title>
+  <!-- Noto Sans KR = Freesentation 대체 (TTF 확보 시 교체) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>IG 캐러셀 템플릿</h1>
+      <span class="ver">2026.06 · 260410 반영</span>
+    </div>
+    <div class="topbar-actions">
+      <label class="toggle">
+        <input type="checkbox" id="guideToggle" checked />
+        <span>안전마진 가이드</span>
+      </label>
+      <button id="exportCurrent" class="btn">현재 장 PNG</button>
+      <button id="exportAll" class="btn btn-primary">전체 PNG 일괄</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 미리보기 -->
+    <section class="preview">
+      <div class="canvas-wrap">
+        <canvas id="previewCanvas" width="1080" height="1350"></canvas>
+      </div>
+      <div class="nav">
+        <button id="prevSlide" class="btn btn-ghost">‹ 이전</button>
+        <span id="slidePos" class="pos">1 / 1</span>
+        <button id="nextSlide" class="btn btn-ghost">다음 ›</button>
+      </div>
+      <p id="fontHint" class="hint">웹폰트 로드 중…</p>
+    </section>
+
+    <!-- 입력 패널 -->
+    <aside class="panel">
+      <div class="panel-section">
+        <h2>장(Slide) 목록</h2>
+        <div id="slideList" class="slide-list"></div>
+        <div class="add-row">
+          <button data-add="cover" class="btn btn-ghost">+ 표지</button>
+          <button data-add="body" class="btn btn-ghost">+ 내지</button>
+          <button data-add="video" class="btn btn-ghost">+ 영상/인덱스</button>
+        </div>
+      </div>
+
+      <div class="panel-section" id="editor">
+        <h2>장 편집 <span id="editorType" class="chip">표지</span></h2>
+        <div id="editorFields"></div>
+      </div>
+
+      <div class="panel-section spec">
+        <h2>스펙 요약</h2>
+        <ul>
+          <li>캔버스 1080×1350 · 마진 72px</li>
+          <li>키컬러 #828FAC · 흰색 #FAFAFA</li>
+          <li>출력 = 배경 투명 PNG (텍스트+스크림)</li>
+          <li>인덱스 = 장 위치 / 총 장수</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
